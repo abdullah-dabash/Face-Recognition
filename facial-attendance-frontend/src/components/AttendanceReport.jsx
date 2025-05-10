@@ -10,12 +10,12 @@ import {
   LinearScale,
   BarElement,
   Title,
-  RadialLinearScale,
+  BarController,
   PointElement,
   LineElement,
-  Filler
+  DoughnutController
 } from 'chart.js';
-import { Pie, Bar, Radar } from 'react-chartjs-2';
+import { Pie, Bar, Doughnut } from 'react-chartjs-2';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
@@ -28,10 +28,10 @@ ChartJS.register(
   LinearScale,
   BarElement,
   Title,
-  RadialLinearScale,
+  BarController,
   PointElement,
   LineElement,
-  Filler
+  DoughnutController
 );
 
 const AttendanceReport = ({ lectureId, lectureName }) => {
@@ -47,17 +47,17 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
     percentage: 0
   });
 
-  // Colors for charts - using our purple theme
+  // Colors using purple for present and red for absent
   const chartColors = {
-    present: 'rgba(124, 58, 237, 0.6)', // primary-600 with opacity
-    absent: 'rgba(239, 68, 68, 0.6)',    // red-500 with opacity
-    method1: 'rgba(139, 92, 246, 0.6)',  // primary-500 with opacity
-    method2: 'rgba(168, 85, 247, 0.6)',  // purple-500 with opacity
+    present: 'rgba(109, 40, 217, 0.7)',  // Purple-700
+    absent: 'rgba(239, 68, 68, 0.7)',    // Red-500
+    face: 'rgba(124, 58, 237, 0.7)',     // Purple-600
+    manual: 'rgba(167, 139, 250, 0.7)',  // Purple-400
     border: {
-      present: 'rgba(124, 58, 237, 1)',  // primary-600
-      absent: 'rgba(239, 68, 68, 1)',    // red-500
-      method1: 'rgba(139, 92, 246, 1)',  // primary-500
-      method2: 'rgba(168, 85, 247, 1)',  // purple-500
+      present: 'rgba(109, 40, 217, 1)',  // Purple-700
+      absent: 'rgba(239, 68, 68, 1)',    // Red-500
+      face: 'rgba(124, 58, 237, 1)',     // Purple-600
+      manual: 'rgba(167, 139, 250, 1)'   // Purple-400
     }
   };
 
@@ -85,13 +85,13 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
           const totalStudents = studentsRes.data.length;
           const presentStudents = attendanceRes.data.filter(record => record.status === 'present').length;
           const absentStudents = totalStudents - presentStudents;
-          const attendancePercentage = totalStudents > 0 ? (presentStudents / totalStudents) * 100 : 0;
+          const attendancePercentage = totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0;
           
           setAttendanceSummary({
             present: presentStudents,
             absent: absentStudents,
             total: totalStudents,
-            percentage: attendancePercentage.toFixed(2)
+            percentage: attendancePercentage
           });
         }
         
@@ -165,7 +165,7 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
     }
   };
 
-  // Chart data for Pie chart
+  // Chart data for Pie chart with whole numbers
   const pieChartData = {
     labels: ['Present', 'Absent'],
     datasets: [
@@ -173,26 +173,46 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
         data: [attendanceSummary.present, attendanceSummary.absent],
         backgroundColor: [chartColors.present, chartColors.absent],
         borderColor: [chartColors.border.present, chartColors.border.absent],
-        borderWidth: 1,
+        borderWidth: 2,
+        hoverOffset: 15
       },
     ],
   };
 
-  // Chart data for Bar chart
-  const barChartData = {
-    labels: ['Present', 'Absent'],
-    datasets: [
-      {
-        label: 'Number of Students',
-        data: [attendanceSummary.present, attendanceSummary.absent],
-        backgroundColor: [chartColors.present, chartColors.absent],
-        borderColor: [chartColors.border.present, chartColors.border.absent],
-        borderWidth: 1,
+  // Chart options for pie chart with animation
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          font: {
+            size: 12,
+            weight: 'bold'
+          }
+        }
       },
-    ],
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = Math.round((value / total) * 100);
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        }
+      }
+    },
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 1500,
+      easing: 'easeOutQuart'
+    }
   };
 
-  // Chart data for Radar chart (attendance by method)
+  // Chart data for attendance methods bar chart
   const getMethodsData = () => {
     const methods = { face: 0, manual: 0 };
     
@@ -206,34 +226,174 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
       labels: ['Face Recognition', 'Manual Entry'],
       datasets: [
         {
-          label: 'Attendance by Method',
+          label: 'Attendance Method',
           data: [methods.face || 0, methods.manual || 0],
-          backgroundColor: 'rgba(139, 92, 246, 0.2)', // primary-500 with opacity
-          borderColor: 'rgba(139, 92, 246, 1)', // primary-500
-          borderWidth: 1,
-        },
-      ],
+          backgroundColor: [chartColors.face, chartColors.manual],
+          borderColor: [chartColors.border.face, chartColors.border.manual],
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false,
+        }
+      ]
     };
   };
 
-  // Bar chart options
-  const barOptions = {
+  // Chart options for methods bar chart
+  const methodsBarOptions = {
     responsive: true,
+    indexAxis: 'y',
     plugins: {
       legend: {
-        position: 'top',
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            return `${context.dataset.label}: ${context.raw} students`;
+          }
+        }
       },
       title: {
         display: true,
-        text: 'Attendance Distribution',
-        color: 'rgba(124, 58, 237, 1)', // primary-600
-      },
+        text: 'Attendance by Method',
+        font: {
+          size: 14,
+          weight: 'bold'
+        },
+        color: '#6D28D9' // Purple-700
+      }
     },
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0 // Only show whole numbers
+        },
+        grid: {
+          display: false
+        }
+      },
+      y: {
+        grid: {
+          display: false
+        }
+      }
+    },
+    animation: {
+      delay: (context) => context.dataIndex * 300,
+      duration: 1000,
+      easing: 'easeOutQuart'
+    }
+  };
+
+  // Get gender distribution data (example of a non-date based third chart)
+  const getAttendanceProgressData = () => {
+    // Calculate percentages
+    const totalStudents = attendanceSummary.total;
+    const presentPercent = Math.round((attendanceSummary.present / totalStudents) * 100) || 0;
+    const targetPercent = 75; // Example target attendance rate
+    const remainingPercent = 100 - presentPercent;
+    
+    return {
+      labels: ['Current Attendance', 'Target (75%)', 'Remaining'],
+      datasets: [
+        {
+          data: [presentPercent, targetPercent, remainingPercent],
+          backgroundColor: [
+            chartColors.present,
+            'rgba(167, 139, 250, 0.5)', // Light purple for target
+            'rgba(243, 244, 246, 0.7)'  // Gray for remaining
+          ],
+          borderColor: [
+            chartColors.border.present,
+            'rgba(167, 139, 250, 0.9)',
+            'rgba(243, 244, 246, 0.9)'
+          ],
+          borderWidth: 1,
+          circumference: 270, // Create semi-circle
+          rotation: 225,     // Rotate to look like a gauge
+        }
+      ]
+    };
+  };
+
+  // Chart options for the doughnut chart
+  const doughnutOptions = {
+    responsive: true,
+    cutout: '70%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          boxWidth: 12,
+          font: {
+            size: 11
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${value}%`;
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: 'Attendance Progress',
+        font: {
+          size: 14,
+          weight: 'bold'
+        },
+        color: '#6D28D9' // Purple-700
+      }
+    },
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 2000
+    }
+  };
+
+  // Animated percentage display component
+  const AnimatedPercentage = ({ value, color, size = 'text-5xl' }) => {
+    const [count, setCount] = useState(0);
+    
+    useEffect(() => {
+      let start = 0;
+      const end = parseInt(value);
+      
+      // No animation if value is 0
+      if (start === end) return;
+      
+      // Speed of count animation (lower = faster)
+      let duration = 2000 / end;
+      
+      // Counter animation
+      let timer = setInterval(() => {
+        start += 1;
+        setCount(start);
+        if (start === end) clearInterval(timer);
+      }, duration);
+      
+      // Clean up timer
+      return () => {
+        clearInterval(timer);
+      };
+    }, [value]);
+    
+    return (
+      <div className="text-center">
+        <span className={`${size} font-bold ${color}`}>{count}%</span>
+      </div>
+    );
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-card p-6 mb-6">
-      <h2 className="text-xl font-bold mb-4 text-primary-800">Attendance Report</h2>
+    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+      <h2 className="text-xl font-bold mb-4 text-purple-800">Attendance Report</h2>
       
       {error && (
         <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 border-l-4 border-red-500">
@@ -243,79 +403,79 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
       
       {loading ? (
         <div className="flex justify-center items-center h-40">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
         </div>
       ) : (
         <>
           {/* Attendance Summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-primary-50 p-4 rounded-lg border border-primary-100">
-              <h3 className="font-semibold text-primary-700 mb-1">Total Students</h3>
-              <p className="text-2xl font-bold text-primary-900">{attendanceSummary.total}</p>
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <h3 className="font-semibold text-purple-700 mb-1">Total Students</h3>
+              <p className="text-2xl font-bold text-purple-900">{attendanceSummary.total}</p>
             </div>
-            <div className="bg-primary-50 p-4 rounded-lg border border-primary-100">
-              <h3 className="font-semibold text-primary-700 mb-1">Present</h3>
-              <p className="text-2xl font-bold text-primary-900">{attendanceSummary.present}</p>
+            <div className="bg-purple-100 p-4 rounded-lg border border-purple-200">
+              <h3 className="font-semibold text-purple-700 mb-1">Present</h3>
+              <p className="text-2xl font-bold text-purple-900">{attendanceSummary.present}</p>
             </div>
-            <div className="bg-primary-50 p-4 rounded-lg border border-primary-100">
-              <h3 className="font-semibold text-primary-700 mb-1">Absent</h3>
-              <p className="text-2xl font-bold text-primary-900">{attendanceSummary.absent}</p>
+            <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+              <h3 className="font-semibold text-red-700 mb-1">Absent</h3>
+              <p className="text-2xl font-bold text-red-900">{attendanceSummary.absent}</p>
             </div>
-            <div className="bg-primary-50 p-4 rounded-lg border border-primary-100">
-              <h3 className="font-semibold text-primary-700 mb-1">Attendance Rate</h3>
-              <p className="text-2xl font-bold text-primary-900">{attendanceSummary.percentage}%</p>
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <h3 className="font-semibold text-purple-700 mb-1">Attendance Rate</h3>
+              <p className="text-2xl font-bold text-purple-900">{attendanceSummary.percentage}%</p>
             </div>
           </div>
           
           {/* Report Actions */}
           <div className="flex flex-wrap gap-3 mb-6">
-          <button
-  onClick={generateReport}
-  className="bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-white py-2 px-4 rounded-lg transition-colors"
->
-  Generate Report
-</button>
+            <button
+              onClick={generateReport}
+              className="bg-purple-600 hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              Generate Report
+            </button>
             
             <button
               onClick={generateExcelReport}
               className="bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-white py-2 px-4 rounded-lg transition-colors"
             >
-              <span className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Download Excel
-              </span>
+              Download Excel
             </button>
           </div>
           
           {/* Charts Section */}
           {reportGenerated && (
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-6 text-primary-800">Attendance Visualization</h3>
+              <h3 className="text-lg font-semibold mb-6 text-purple-800 border-b pb-2">Attendance Visualization</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 {/* Pie Chart */}
-                <div className="bg-white p-4 rounded-xl shadow-soft border border-neutral-100">
-                  <h4 className="text-center font-medium mb-4 text-primary-700">Attendance Distribution</h4>
-                  <div className="h-64">
-                    <Pie data={pieChartData} />
+                <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+                  <h4 className="text-center font-medium mb-4 text-purple-700">Present vs. Absent</h4>
+                  <div className="h-64 flex items-center justify-center">
+                    <Pie data={pieChartData} options={pieOptions} />
                   </div>
                 </div>
                 
-                {/* Bar Chart */}
-                <div className="bg-white p-4 rounded-xl shadow-soft border border-neutral-100">
-                  <h4 className="text-center font-medium mb-4 text-primary-700">Attendance Comparison</h4>
-                  <div className="h-64">
-                    <Bar data={barChartData} options={barOptions} />
+                {/* Methods Bar Chart */}
+                <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+                  <h4 className="text-center font-medium mb-4 text-purple-700">Attendance Methods</h4>
+                  <div className="h-64 flex items-center justify-center">
+                    <Bar data={getMethodsData()} options={methodsBarOptions} />
                   </div>
                 </div>
                 
-                {/* Radar Chart */}
-                <div className="bg-white p-4 rounded-xl shadow-soft border border-neutral-100">
-                  <h4 className="text-center font-medium mb-4 text-primary-700">Attendance Methods</h4>
-                  <div className="h-64">
-                    <Radar data={getMethodsData()} />
+                {/* Attendance Progress Chart (Gauge) */}
+                <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+                  <h4 className="text-center font-medium mb-4 text-purple-700">Attendance Progress</h4>
+                  <div className="h-64 flex flex-col items-center justify-center">
+                    <div className="relative w-full h-48 flex items-center justify-center">
+                      <Doughnut data={getAttendanceProgressData()} options={doughnutOptions} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <AnimatedPercentage value={attendanceSummary.percentage} color="text-purple-700" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -325,67 +485,51 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
           {/* Detailed Attendance Table */}
           {reportGenerated && (
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-4 text-primary-800">Detailed Attendance</h3>
-              <div className="overflow-x-auto bg-white rounded-xl shadow-soft border border-neutral-100">
-                <table className="min-w-full divide-y divide-neutral-200">
-                  <thead className="bg-primary-50">
+              <h3 className="text-lg font-semibold mb-4 text-purple-800 border-b pb-2">Detailed Attendance</h3>
+              <div className="overflow-x-auto bg-white rounded-xl shadow-md border border-gray-100">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-purple-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary-800 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                         Student Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary-800 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary-800 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                         Method
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary-800 uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                         Time
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-neutral-200">
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {students.map(student => {
                       const attendanceRecord = attendanceData.find(record => 
                         record.student._id === student._id
                       );
                       
                       return (
-                        <tr key={student._id} className="hover:bg-neutral-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-800">
+                        <tr key={student._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                             {student.name}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               attendanceRecord && attendanceRecord.status === 'present' 
-                                ? 'bg-green-100 text-green-800' 
+                                ? 'bg-purple-100 text-purple-800' 
                                 : 'bg-red-100 text-red-800'
                             }`}>
                               {attendanceRecord && attendanceRecord.status === 'present' ? 'Present' : 'Absent'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {attendanceRecord ? (
-                              <span className="inline-flex items-center">
-                                {attendanceRecord.method === 'face' ? (
-                                  <>
-                                    <svg className="w-4 h-4 mr-1 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
-                                    Face Recognition
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4 mr-1 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    Manual
-                                  </>
-                                )}
-                              </span>
+                              attendanceRecord.method === 'face' ? 'Face Recognition' : 'Manual'
                             ) : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {attendanceRecord ? new Date(attendanceRecord.createdAt).toLocaleString() : 'N/A'}
                           </td>
                         </tr>
