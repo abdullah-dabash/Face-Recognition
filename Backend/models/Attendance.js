@@ -31,7 +31,8 @@ const attendanceSchema = new mongoose.Schema({
   }
 });
 
-// Create a compound index for student and lecture to ensure uniqueness
-attendanceSchema.index({ student: 1, lecture: 1 }, { unique: true });
+// Remove the unique compound index
+// Create a non-unique index for better query performance
+attendanceSchema.index({ student: 1, lecture: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

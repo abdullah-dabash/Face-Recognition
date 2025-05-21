@@ -8,6 +8,7 @@ import AdminDashboard from './components/AdminDashboard';
 import ManualAttendance from './components/ManualAttendance';
 import Navigation from './components/Navigation';
 import ProtectedRoute from './components/ProtectedRoute';
+import StudentAttendanceHistory from './components/StudentAttendanceHistory';
 import './index.css'; // Make sure you have your tailwind styles imported
 
 function App() {
@@ -17,11 +18,19 @@ function App() {
         <Navigation />
         <main className="flex-grow">
           <Routes>
+            <Route 
+            path="/students/:studentId/attendance" 
+            element={
+               <ProtectedRoute>
+               <StudentAttendanceHistory />
+               </ProtectedRoute>
+                } 
+                />
             {/* Public Routes */}
             <Route path="/" element={<Login />} />
 
             {/* Protected Routes */}
-            <Route 
+            <Route  
               path="/dashboard" 
               element={
                 <ProtectedRoute>

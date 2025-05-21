@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AddStudentForm from '../pages/AddStudentForm';
 import FaceRecognition from '../components/FaceRecognition';
 import ManualAttendance from '../components/ManualAttendance';
 import AttendanceReport from '../components/AttendanceReport';
+import StudentAttendanceHistory from '../components/StudentAttendanceHistory';
 
 const LectureDetails = () => {
   const { lectureId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
   const [students, setStudents] = useState([]);
   const [lecture, setLecture] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +22,7 @@ const LectureDetails = () => {
   const [attendanceMarked, setAttendanceMarked] = useState([]);
   const [showFaceRecognition, setShowFaceRecognition] = useState(false);
   const [showAttendanceReport, setShowAttendanceReport] = useState(false);
+  const [viewingStudentAttendance, setViewingStudentAttendance] = useState(null);
   
   const fetchData = async () => {
     try {
@@ -92,6 +97,18 @@ const LectureDetails = () => {
     fetchData();
   }, [lectureId]);
 
+  // Check for studentHistory in URL when students load
+  useEffect(() => {
+    const studentHistoryId = searchParams.get('studentHistory');
+    if (studentHistoryId && students.length > 0) {
+      // Find the student in the students array
+      const student = students.find(s => s._id === studentHistoryId);
+      if (student) {
+        setViewingStudentAttendance(student);
+      }
+    }
+  }, [searchParams, students]);
+
   // Handle marking attendance manually
   const handleMarkAttendance = async (studentId) => {
     // Skip if already marked
@@ -137,6 +154,18 @@ const LectureDetails = () => {
   const toggleAttendanceReport = () => {
     setShowAttendanceReport(prev => !prev);
     if (showFaceRecognition) setShowFaceRecognition(false);
+  };
+
+  // Functions for handling student attendance history
+  const openAttendanceHistory = (student) => {
+    setViewingStudentAttendance(student);
+    setSearchParams({ studentHistory: student._id });
+  };
+  
+  const closeAttendanceHistory = () => {
+    setViewingStudentAttendance(null);
+    // Remove the query parameter but keep the lectureId in the URL
+    navigate(`/lectures/${lectureId}`);
   };
 
   return (
@@ -253,29 +282,29 @@ const LectureDetails = () => {
             </button>
             
             <button
-  className={`${
-    showAttendanceReport 
-      ? 'bg-indigo-700 hover:bg-indigo-800' 
-      : 'bg-indigo-600 hover:bg-indigo-700'
-  } text-white py-2 px-4 rounded-lg flex items-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-  onClick={toggleAttendanceReport}
->
-  {showAttendanceReport ? (
-    <>
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-      Hide Report
-    </>
-  ) : (
-    <>
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-      Generate Report
-    </>
-  )}
-</button>
+              className={`${
+                showAttendanceReport 
+                  ? 'bg-indigo-700 hover:bg-indigo-800' 
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              } text-white py-2 px-4 rounded-lg flex items-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+              onClick={toggleAttendanceReport}
+            >
+              {showAttendanceReport ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Hide Report
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Generate Report
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -416,6 +445,18 @@ const LectureDetails = () => {
                       </>
                     )}
                   </button>
+                  
+                  {/* Attendance History button - UPDATED */}
+                  <button 
+                    onClick={() => openAttendanceHistory(student)} 
+                    className="w-full mt-2 py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center 
+                      bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Attendance History
+                  </button>
                 </div>
               </div>
             ))}
@@ -443,6 +484,14 @@ const LectureDetails = () => {
             setSelectedStudent(null);
             fetchData(); // Refresh data after marking attendance
           }}
+        />
+      )}
+      
+      {/* Student Attendance History Modal - UPDATED */}
+      {viewingStudentAttendance && (
+        <StudentAttendanceHistory
+          student={viewingStudentAttendance}
+          onClose={closeAttendanceHistory}
         />
       )}
     </div>
