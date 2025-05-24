@@ -494,6 +494,9 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
                         Student Name
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
+                        Student ID
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
                         Status
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">
@@ -514,6 +517,9 @@ const AttendanceReport = ({ lectureId, lectureName }) => {
                         <tr key={student._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                             {student.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
+                            {student._id}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
